@@ -1,122 +1,117 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Table, Button, Form } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Button, Col, Container, Modal, Row, Table, Form } from 'react-bootstrap';
 
 const App = () => {
-  const [data, setData] = useState([]);
-  const [editItem, setEditItem] = useState(null);
+  const [student, setStudent] = useState({});
+  const [list, setList] = useState([]);
+  const [errors, setErrors] = useState({});
+  const [editIndex, setEditIndex] = useState(-1);
+  const [showModal, setShowModal] = useState(false);
 
-  const nameRef = useRef(null);
-  const emailRef = useRef(null);
-
-  // Load data from local storage on component mount
   useEffect(() => {
-    const storedData = JSON.parse(localStorage.getItem('data')) || [];
-    setData(storedData);
+    const storedList = JSON.parse(sessionStorage.getItem('list')) || [];
+    setList(storedList);
   }, []);
 
-  // Save data to local storage whenever data changes
-  useEffect(() => {
-    localStorage.setItem('data', JSON.stringify(data));
-  }, [data]);
-
-  const handleAdd = () => {
-    const name = nameRef.current.value;
-    const email = emailRef.current.value;
-
-    if (name && email) {
-      const newItem = { id: data.length + 1, name, email };
-      setData([...data, newItem]);
-      clearForm();
-    }
+  const handleInput = (e) => {
+    const { name, value } = e.target;
+    setStudent({ ...student, [name]: value });
   };
 
-  const handleEdit = (item) => {
-    setEditItem(item);
-    nameRef.current.value = item.name;
-    emailRef.current.value = item.email;
+  const handleValidation = () => {
+    let tempErrors = {};
+    if (!student.userName) tempErrors.userName = "User Name required";
+    if (!student.email) tempErrors.email = "Email required";
+    else if (!/\S+@\S+\.\S+/.test(student.email)) tempErrors.email = "Invalid Email";
+    setErrors(tempErrors);
+    return Object.keys(tempErrors).length !== 0;
   };
 
-  const handleUpdate = () => {
-    const name = nameRef.current.value;
-    const email = emailRef.current.value;
-
-    if (name && email) {
-      const updatedData = data.map((item) =>
-        item.id === editItem.id ? { ...item, name, email } : item
-      );
-      setData(updatedData);
-      setEditItem(null);
-      clearForm();
-    }
+  const submitForm = () => {
+    if (handleValidation()) return;
+    const newList = editIndex >= 0 ? list.map((item, index) => index === editIndex ? student : item) : [...list, student];
+    setList(newList);
+    sessionStorage.setItem('list', JSON.stringify(newList));
+    setStudent({});
+    setErrors({});
+    setEditIndex(-1);
+    setShowModal(false);
   };
 
-  const handleDelete = (id) => {
-    const filteredData = data.filter((item) => item.id !== id);
-    setData(filteredData);
+  const handleEdit = (index) => {
+    setStudent(list[index]);
+    setEditIndex(index);
+    setShowModal(true);
   };
 
-  const clearForm = () => {
-    nameRef.current.value = '';
-    emailRef.current.value = '';
+  const handleDelete = (index) => {
+    const filteredList = list.filter((_, i) => i !== index);
+    setList(filteredList);
+    sessionStorage.setItem('list', JSON.stringify(filteredList));
   };
 
   return (
-    <div className='container mt-5'>
-      <div className="row">
-        <div className="col-6 fw-bold">
-          <Form>
-            <Form.Group controlId="formName">
-              <Form.Label>Name</Form.Label>
-              <Form.Control className='border border-3 my-2' type="text" name="name" ref={nameRef} />
+    <Container className='py-4'>
+      <Row className='mb-4 justify-content-around'>
+        <Col md={4}>
+          <Form onSubmit={(e) => e.preventDefault()} className="border rounded-3 px-3 py-2">
+            <h3>User Form</h3>
+            <Form.Group className="mb-3">
+              <Form.Control type="text" name="userName" placeholder="Enter name" value={student.userName || ""} onChange={handleInput} />
+              {errors.userName && <div className="text-danger">{errors.userName}</div>}
             </Form.Group>
-            <Form.Group controlId="formEmail">
-              <Form.Label>Email</Form.Label>
-              <Form.Control className='border border-3 my-2' type="email" name="email" ref={emailRef} />
+            <Form.Group className="mb-3">
+              <Form.Control type="email" name="email" placeholder="Enter email" value={student.email || ""} onChange={handleInput} />
+              {errors.email && <div className="text-danger">{errors.email}</div>}
             </Form.Group>
-            <Button
-              variant="primary" className='mt-3 fw-bold'
-              onClick={editItem ? handleUpdate : handleAdd}
-            >
-              {editItem ? 'Update' : 'Add'}
-            </Button>
-            {editItem && (
-              <Button variant="secondary" onClick={() => setEditItem(null)}>
-                Cancel
-              </Button>
-            )}
+            <Button variant="success" onClick={submitForm}>Submit</Button>
           </Form>
-        </div>
-        <div className="col-6">
-          <Table striped bordered hover>
+        </Col>
+        <Col md={6}>
+          <Table striped bordered hover size="sm">
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Name</th>
                 <th>Email</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {data.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.id}</td>
-                  <td>{item.name}</td>
-                  <td>{item.email}</td>
+              {list.map((val, index) => (
+                <tr key={index}>
+                  <td>{val.userName}</td>
+                  <td>{val.email}</td>
                   <td>
-                    <Button variant="warning" className='fw-bold mx-2' onClick={() => handleEdit(item)}>
-                      Edit
-                    </Button>{' '}
-                    <Button variant="danger" className='fw-bold mx-2' onClick={() => handleDelete(item.id)}>
-                      Delete
-                    </Button>
+                    <Button variant="info" onClick={() => handleEdit(index)}>Edit</Button>{' '}
+                    <Button variant="danger" onClick={() => handleDelete(index)}>Delete</Button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </Table>
-        </div>
-      </div>
-    </div>
+        </Col>
+      </Row>
+
+      <Modal show={showModal} onHide={() => setShowModal(false)}>
+        <Modal.Header closeButton>
+          <Modal.Title>Edit User</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form.Group className="mb-3">
+            <Form.Label>User Name</Form.Label>
+            <Form.Control type="text" name="userName" value={student.userName || ""} onChange={handleInput} />
+          </Form.Group>
+          <Form.Group className="mb-3">
+            <Form.Label>Email</Form.Label>
+            <Form.Control type="email" name="email" value={student.email || ""} onChange={handleInput} />
+          </Form.Group>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowModal(false)}>Close</Button>
+          <Button variant="primary" onClick={submitForm}>Save Changes</Button>
+        </Modal.Footer>
+      </Modal>
+    </Container>
   );
 };
 
